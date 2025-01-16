@@ -1,4 +1,4 @@
-﻿// Copyright 2022 Google Inc.
+// Copyright 2022 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,18 +22,19 @@ using System;
 
 public class CopyBackupSample
 {
-    public Backup CopyBackup(string sourceInstanceId, string sourceProjectId, string sourceBackupId, 
-        string targetInstanceId, string targetProjectId, string targetBackupId, 
+    public Backup CopyBackup(
+        string sourceProjectId, string sourceInstanceId, string sourceBackupId,
+        string targetProjectId, string targetInstanceId, string targetBackupId,
         DateTimeOffset expireTime)
     {
         DatabaseAdminClient databaseAdminClient = DatabaseAdminClient.Create();
 
         var request = new CopyBackupRequest
         {
-            SourceBackupAsBackupName = new BackupName(sourceProjectId, sourceInstanceId, sourceBackupId), 
+            SourceBackupAsBackupName = new BackupName(sourceProjectId, sourceInstanceId, sourceBackupId),
             ParentAsInstanceName = new InstanceName(targetProjectId, targetInstanceId),
             BackupId = targetBackupId,
-            ExpireTime = Timestamp.FromDateTimeOffset(expireTime) 
+            ExpireTime = Timestamp.FromDateTimeOffset(expireTime)
         };
 
         var response = databaseAdminClient.CopyBackup(request);
@@ -50,7 +51,7 @@ public class CopyBackupSample
 
         Console.WriteLine($"Backup created successfully.");
         Console.WriteLine($"Backup with Id {sourceBackupId} has been copied from {sourceProjectId}/{sourceInstanceId} to {targetProjectId}/{targetInstanceId} Backup {targetBackupId}");
-        Console.WriteLine($"Backup {backup.Name} of size {backup.SizeBytes} bytes was created at {backup.CreateTime} from {backup.Database} and is in state {backup.State} and has version time {backup.VersionTime.ToDateTime()}");
+        Console.WriteLine($"Backup {backup.Name} of size {backup.SizeBytes} bytes was created at {backup.CreateTime} from {backup.Database} and is in state {backup.State} and has version time {backup.VersionTime}");
 
         return backup;
     }

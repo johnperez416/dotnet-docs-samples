@@ -1,4 +1,4 @@
-﻿// Copyright 2020 Google LLC
+// Copyright 2020 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,16 +18,15 @@ using Microsoft.AspNetCore.Http;
 using System;
 using System.Threading.Tasks;
 
-namespace EnvironmentVariables
+namespace EnvironmentVariables;
+
+public class Function : IHttpFunction
 {
-    public class Function : IHttpFunction
+    public async Task HandleAsync(HttpContext context)
     {
-        public async Task HandleAsync(HttpContext context)
-        {
-            string foo = Environment.GetEnvironmentVariable("FOO")
-                ?? "Specified environment variable is not set.";
-            await context.Response.WriteAsync(foo);
-        }
+        string foo = Environment.GetEnvironmentVariable("FOO")
+            ?? "Specified environment variable is not set.";
+        await context.Response.WriteAsync(foo, context.RequestAborted);
     }
 }
 // [END functions_env_vars]

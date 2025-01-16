@@ -1,4 +1,4 @@
-﻿// Copyright 2020 Google Inc.
+// Copyright 2020 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,14 +35,12 @@ public class PullMessagesAsyncWithDeliveryAttemptsTest
     [Fact]
     public async Task PullMessagesAsyncWithDeliveryAttempts()
     {
-        string randomName = _pubsubFixture.RandomName();
-        string topicId = $"testTopicForDeadLetterPolicyMessageSyncAck{randomName}";
-        string subscriptionId = $"testSubscriptionDeadLetterPolicyForMessageSyncAck{randomName}";
+        var (topicId, subscriptionId) = _pubsubFixture.RandomNameTopicSubscriptionId();
         var message = _pubsubFixture.RandomName();
 
         _pubsubFixture.CreateTopic(topicId);
         _createSubscriptionWithDeadLetterPolicySample.CreateSubscriptionWithDeadLetterPolicy(
-           _pubsubFixture.ProjectId, subscriptionId, topicId, _pubsubFixture.DeadLetterTopic);
+           _pubsubFixture.ProjectId, topicId, subscriptionId, _pubsubFixture.DeadLetterTopic);
 
         _pubsubFixture.TempSubscriptionIds.Add(subscriptionId);
 

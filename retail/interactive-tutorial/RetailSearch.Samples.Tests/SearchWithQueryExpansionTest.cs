@@ -1,4 +1,5 @@
-﻿// Copyright 2021 Google Inc. All Rights Reserved.
+﻿// Copyright 2021 Google Inc.
+
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,14 +25,9 @@ namespace RetailSearch.Samples.Tests
         {
             const string ExpectedProductTitle = "Google Youth Hero Tee Grey";
 
-            var searchResultPages = SearchWithQueryExpansionTutorial.Search();
+            var firstPage = SearchWithQueryExpansionTutorial.Search().First();
 
-            var topPages = searchResultPages.Take(3).ToList();
-            var firstPage = topPages[0];
-            var thirdPage = topPages[2];
-
-            Assert.Contains(firstPage, result => result.Product.Title.Contains(ExpectedProductTitle));
-            Assert.Contains(thirdPage, result => !result.Product.Title.Contains(ExpectedProductTitle));
+            Assert.True(firstPage.QueryExpansionInfo.ExpandedQuery);
         }
     }
 }

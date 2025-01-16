@@ -1,29 +1,59 @@
 assign_issues_by:
 - labels:
-  - 'api: cloudiot'
-  to:
-  - simoncsaba-g
-- labels:
   - 'api: bigtable'
   - 'api: datastore'
   - 'api: firestore'
   to:
   - GoogleCloudPlatform/cloud-native-db-dpes
 - labels:
+  - 'api: storage'
+  - 'api: storagetransfer'
+  - 'api: storageinsights'
+  to:
+  - GoogleCloudPlatform/cloud-storage-dpes
+- labels:
   - 'api: cloudsql'
   to:
-  - GoogleCloudPlatform/infra-db-dpes
+  - GoogleCloudPlatform/cloud-sql-connectors
 - labels:
-  - 'api: spanner'
+  - 'api: dlp'
   to:
-  - shivgautam
+  - GoogleCloudPlatform/googleapis-dlp
+- labels:
+  - 'api: retail'
+  to:
+  - chenlei1216
+- labels:
+  - 'api: cloudtrace'
+  - 'api: container'
+  - 'api: logging'
+  - 'api: monitoring'
+  - 'api: clouderrorreporting'
+  to:
+  - GoogleCloudPlatform/dee-platform-ops
+- labels:
+  - 'product: appengine flex'
+  to:
+  - GoogleCloudPlatform/serverless-runtimes
+- labels:
+  - 'aiplatform'
+  - 'api: aiplatform'
+  - 'api: vertex-ai'
+  to:
+  - meteatamel
+- labels:
+  - 'api: secretmanager'
+  to:
+  - GoogleCloudPlatform/cloud-secrets-team
+
+assign_issues:
+  - GoogleCloudPlatform/dotnet-samples-reviewers
+
+assign_prs_always:
+- GoogleCloudPlatform/dotnet-samples-reviewers
 
 assign_prs_by:
 - labels:
-  - 'api: cloudiot'
-  to:
-  - simoncsaba-g
-- labels:
   - 'api: bigtable'
   - 'api: datastore'
   - 'api: firestore'
@@ -32,4 +62,44 @@ assign_prs_by:
 - labels:
   - 'api: cloudsql'
   to:
-  - GoogleCloudPlatform/infra-db-dpes
+  - GoogleCloudPlatform/cloud-sql-connectors
+- labels:
+  - 'api: storage'
+  - 'api: storagetransfer'
+  - 'api: storageinsights'
+  to:
+  - GoogleCloudPlatform/cloud-storage-dpes
+- labels:
+  - 'api: spanner'
+  to:
+  - GoogleCloudPlatform/api-spanner-dotnet
+- labels:
+  - 'api: dlp'
+  to:
+  - GoogleCloudPlatform/googleapis-dlp
+- labels:
+  - 'api: retail'
+  to:
+  - chenlei1216
+- labels:
+  - 'api: cloudtrace'
+  - 'api: container'
+  - 'api: logging'
+  - 'api: monitoring'
+  - 'api: clouderrorreporting'
+  to:
+  - GoogleCloudPlatform/dee-platform-ops
+- labels:
+  - 'product: appengine flex'
+  to:
+  - GoogleCloudPlatform/serverless-runtimes
+- labels:
+  - 'aiplatform'
+  - 'api: aiplatform'
+  - 'api: vertex-ai'
+  to:
+  - meteatamel
+- labels:
+  - 'api: secretmanager'
+  to:
+  - GoogleCloudPlatform/cloud-secrets-team

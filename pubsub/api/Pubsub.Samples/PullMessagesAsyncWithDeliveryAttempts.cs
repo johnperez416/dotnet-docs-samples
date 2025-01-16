@@ -1,4 +1,4 @@
-﻿// Copyright 2020 Google Inc.
+// Copyright 2020 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,8 +15,6 @@
 // [START pubsub_dead_letter_delivery_attempt]
 
 using Google.Cloud.PubSub.V1;
-using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -32,7 +30,7 @@ public class PullMessagesAsyncWithDeliveryAttemptsSample
         int deliveryAttempt = 0;
         Task startTask = subscriber.StartAsync((PubsubMessage message, CancellationToken cancel) =>
         {
-            string text = System.Text.Encoding.UTF8.GetString(message.Data.ToArray());
+            string text = message.Data.ToStringUtf8();
             System.Console.WriteLine($"Delivery Attempt: {message.GetDeliveryAttempt()}");
             if (message.GetDeliveryAttempt() != null)
             {

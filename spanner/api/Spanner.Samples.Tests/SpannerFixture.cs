@@ -31,6 +31,20 @@ using CryptoKeyName = Google.Cloud.Spanner.Admin.Database.V1.CryptoKeyName;
 [CollectionDefinition(nameof(SpannerFixture))]
 public class SpannerFixture : IAsyncLifetime, ICollectionFixture<SpannerFixture>
 {
+    public const string CreateSingersTableStatement =
+    @"CREATE TABLE Singers (
+            SingerId INT64 NOT NULL,
+            FirstName STRING(1024),
+            LastName STRING(1024)
+            ) PRIMARY KEY (SingerId)";
+
+    public const string CreateAlbumsTableStatement =
+    @"CREATE TABLE Albums (
+        SingerId INT64 NOT NULL,
+        AlbumId INT64 NOT NULL,
+        AlbumTitle STRING(MAX)
+        ) PRIMARY KEY (SingerId, AlbumId)";
+
     public string ProjectId { get; } = Environment.GetEnvironmentVariable("GOOGLE_PROJECT_ID");
     // Allow environment variables to override the default instance and database names.
     public string InstanceId { get; } = Environment.GetEnvironmentVariable("TEST_SPANNER_INSTANCE") ?? "my-instance";
@@ -40,29 +54,41 @@ public class SpannerFixture : IAsyncLifetime, ICollectionFixture<SpannerFixture>
 
     public string BackupDatabaseId { get; } = "my-test-database";
     public string BackupId { get; } = "my-test-database-backup";
+    public string CreateCustomInstanceConfigId { get; } = $"custom-name-create-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+    public string UpdateCustomInstanceConfigId { get; } = $"custom-name-update-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+    public string DeleteCustomInstanceConfigId { get; } = $"custom-name-delete-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
     public string ToBeCancelledBackupId { get; } = GenerateId("my-backup-");
     public string RestoredDatabaseId { get; private set; }
 
-    public bool RunCmekBackupSampleTests { get; private set; }
+    public bool SkipCmekBackupSampleTests { get; private set; }
     public const string SkipCmekBackupSamplesMessage = "Spanner CMEK backup sample tests are disabled by default for performance reasons. Set the environment variable RUN_SPANNER_CMEK_BACKUP_SAMPLES_TESTS=true to enable the test.";
 
     public string EncryptedDatabaseId { get; private set; }
     public string EncryptedBackupId { get; } = GenerateId("my-enc-backup-");
-    // 'restore' is abbreviated to prevent the name from becoming longer than 30 characters.
     public string EncryptedRestoreDatabaseId { get; private set; }
 
     // These are intentionally kept on the instance to avoid the need to create a new encrypted database and backup for each run.
     public string FixedEncryptedDatabaseId { get; } = "fixed-enc-backup-db";
     public string FixedEncryptedBackupId { get; } = "fixed-enc-backup";
 
+    public string MultiRegionEncryptedDatabaseId { get; private set; }
+    public string MultiRegionEncryptedBackupId { get; } = GenerateId("my-mr-enc-backup-");
+    public string MultiRegionEncryptedRestoreDatabaseId { get; private set; }
+
+    // These are intentionally kept on the instance to avoid the need to create a new encrypted database and backup for each run.
+    public string FixedMultiRegionEncryptedDatabaseId { get; } = "fixed-mr-backup-db";
+    public string FixedMultiRegionEncryptedBackupId { get; } = "fixed-mr-backup";
+
     public CryptoKeyName KmsKeyName { get; } = new CryptoKeyName(
         Environment.GetEnvironmentVariable("spanner.test.key.project") ?? Environment.GetEnvironmentVariable("GOOGLE_PROJECT_ID"),
         Environment.GetEnvironmentVariable("spanner.test.key.location") ?? "us-central1",
         Environment.GetEnvironmentVariable("spanner.test.key.ring") ?? "spanner-test-keyring",
         Environment.GetEnvironmentVariable("spanner.test.key.name") ?? "spanner-test-key");
+    public CryptoKeyName[] KmsKeyNames { get; private set; }
 
     public string InstanceIdWithProcessingUnits { get; } = GenerateId("my-ins-pu-");
     public string InstanceIdWithMultiRegion { get; } = GenerateId("my-ins-mr-");
+    public string InstanceIdWithInstancePartition { get; } = GenerateId("my-ins-prt-");
     public string InstanceConfigId { get; } = "nam6";
 
     private IList<string> TempDbIds { get; } = new List<string>();
@@ -85,6 +111,9 @@ public class SpannerFixture : IAsyncLifetime, ICollectionFixture<SpannerFixture>
         RestoredDatabaseId = GenerateTempDatabaseId("my-restore-db-");
         EncryptedDatabaseId = GenerateTempDatabaseId("my-enc-db-");
         EncryptedRestoreDatabaseId = GenerateTempDatabaseId("my-enc-r-db-");
+        MultiRegionEncryptedDatabaseId = GenerateTempDatabaseId("my-mr-db-");
+        MultiRegionEncryptedRestoreDatabaseId = GenerateTempDatabaseId("my-mr-r-db-");
+        KmsKeyNames = new CryptoKeyName[] { KmsKeyName };
 
         DatabaseAdminClient = await DatabaseAdminClient.CreateAsync();
         InstanceAdminClient = await InstanceAdminClient.CreateAsync();
@@ -93,19 +122,21 @@ public class SpannerFixture : IAsyncLifetime, ICollectionFixture<SpannerFixture>
         PgSpannerConnection = new SpannerConnection($"Data Source=projects/{ProjectId}/instances/{InstanceId}/databases/{PostgreSqlDatabaseId}");
 
         bool.TryParse(Environment.GetEnvironmentVariable("RUN_SPANNER_CMEK_BACKUP_SAMPLES_TESTS"), out var runCmekBackupSampleTests);
-        RunCmekBackupSampleTests = runCmekBackupSampleTests;
+        SkipCmekBackupSampleTests = !runCmekBackupSampleTests;
 
-        await InitializeInstanceAsync();
+        await MaybeInitializeTestInstanceAsync();
         await CreateInstanceWithMultiRegionAsync();
+        await InitializeInstanceAsync(InstanceIdWithInstancePartition);
         await InitializeDatabaseAsync();
         await InitializeBackupAsync();
         await InitializePostgreSqlDatabaseAsync();
 
         // Create encryption key for creating an encrypted database and optionally backing up and restoring an encrypted database.
         await InitializeEncryptionKeys();
-        if (RunCmekBackupSampleTests)
+        if (!SkipCmekBackupSampleTests)
         {
             await InitializeEncryptedBackupAsync();
+            await InitializeMultiRegionEncryptedBackupAsync();
         }
     }
 
@@ -113,15 +144,20 @@ public class SpannerFixture : IAsyncLifetime, ICollectionFixture<SpannerFixture>
     {
         try
         {
-            IList<Task> cleanupTasks = new List<Task>();
+            IList<Task> cleanupTasks = new List<Task>
+            {
+                DeleteInstanceAsync(InstanceIdWithMultiRegion),
+                DeleteInstanceAsync(InstanceIdWithProcessingUnits),
+                DeleteInstanceAsync(InstanceIdWithInstancePartition),
+                DeleteBackupAsync(ToBeCancelledBackupId),
+                DeleteBackupAsync(EncryptedBackupId),
+                DeleteBackupAsync(MultiRegionEncryptedRestoreDatabaseId)
+            };
+            DeleteInstanceConfig(CreateCustomInstanceConfigId);
+            DeleteInstanceConfig(UpdateCustomInstanceConfigId);
+            DeleteInstanceConfig(DeleteCustomInstanceConfigId);
 
-            cleanupTasks.Add(DeleteInstanceAsync(InstanceIdWithMultiRegion));
-            cleanupTasks.Add(DeleteInstanceAsync(InstanceIdWithProcessingUnits));
-
-            cleanupTasks.Add(DeleteBackupAsync(ToBeCancelledBackupId));
-            cleanupTasks.Add(DeleteBackupAsync(EncryptedBackupId));
-
-            foreach(string id in TempDbIds)
+            foreach (string id in TempDbIds)
             {
                 cleanupTasks.Add(DeleteDatabaseAsync(id));
             }
@@ -136,20 +172,47 @@ public class SpannerFixture : IAsyncLifetime, ICollectionFixture<SpannerFixture>
         }
     }
 
-    private async Task<bool> InitializeInstanceAsync()
+    private void DeleteInstanceConfig(string instanceConfigId)
+    {
+        InstanceAdminClient instanceAdminClient = InstanceAdminClient.Create();
+        var instanceConfigName = new InstanceConfigName(ProjectId, instanceConfigId);
+
+        try
+        {
+            instanceAdminClient.DeleteInstanceConfig(new DeleteInstanceConfigRequest
+            {
+                InstanceConfigName = instanceConfigName
+            });
+        }
+        catch (Exception)
+        {
+            // Silently ignore errors to prevent tests from failing.
+        }
+    }
+
+    private async Task<bool> MaybeInitializeTestInstanceAsync()
     {
         InstanceName instanceName = InstanceName.FromProjectInstance(ProjectId, InstanceId);
         try
         {
-            Instance response = await InstanceAdminClient.GetInstanceAsync(instanceName);
+            Instance instance = await InstanceAdminClient.GetInstanceAsync(instanceName);
+            if (instance.Edition != Instance.Types.Edition.EnterprisePlus)
+            {
+                throw new InvalidOperationException($"Test instance with name {instanceName} must be {Instance.Types.Edition.EnterprisePlus}.");
+            }
             return true;
         }
         catch (RpcException ex) when (ex.Status.StatusCode == StatusCode.NotFound)
         {
-            CreateInstanceSample createInstanceSample = new CreateInstanceSample();
-            await SafeCreateInstanceAsync(() => Task.FromResult(createInstanceSample.CreateInstance(ProjectId, InstanceId)));
+            await InitializeInstanceAsync(InstanceId);
             return false;
         }
+    }
+
+    private async Task InitializeInstanceAsync(string instanceId)
+    {
+        CreateInstanceAsyncSample createInstanceSample = new CreateInstanceAsyncSample();
+        await SafeAdminAsync(() => createInstanceSample.CreateInstanceAsync(ProjectId, instanceId, Instance.Types.Edition.EnterprisePlus));
     }
 
     private async Task CreateInstanceWithMultiRegionAsync()
@@ -161,9 +224,10 @@ public class SpannerFixture : IAsyncLifetime, ICollectionFixture<SpannerFixture>
             ConfigAsInstanceConfigName = InstanceConfigName.FromProjectInstanceConfig(ProjectId, InstanceConfigId),
             InstanceName = InstanceName.FromProjectInstance(ProjectId, InstanceIdWithMultiRegion),
             NodeCount = 1,
+            Edition = Instance.Types.Edition.EnterprisePlus,
         };
 
-        await SafeCreateInstanceAsync(async () =>
+        await SafeAdminAsync(async () =>
         {
             var response = await InstanceAdminClient.CreateInstanceAsync(projectName, InstanceIdWithMultiRegion, instance);
             // Poll until the returned long-running operation is complete
@@ -202,6 +266,14 @@ public class SpannerFixture : IAsyncLifetime, ICollectionFixture<SpannerFixture>
         await RefillMarketingBudgetsAsync(300000, 300000);
         // Create table with Timestamp column
         await createTableWithTimestampColumnAsyncSample.CreateTableWithTimestampColumnAsync(ProjectId, InstanceId, DatabaseId);
+    }
+
+    public async Task InitializeTempDatabaseAsync(string databaseId)
+    {
+        InsertDataAsyncSample insertDataAsyncSample = new InsertDataAsyncSample();
+        AddColumnAsyncSample addColumnAsyncSample = new AddColumnAsyncSample();
+        await insertDataAsyncSample.InsertDataAsync(ProjectId, InstanceId, databaseId);
+        await addColumnAsyncSample.AddColumnAsync(ProjectId, InstanceId, databaseId);
     }
 
     private async Task InitializeBackupAsync()
@@ -244,8 +316,9 @@ public class SpannerFixture : IAsyncLifetime, ICollectionFixture<SpannerFixture>
 
     private async Task InitializePostgreSqlDatabaseAsync()
     {
-        CreateDatabaseAsyncPostgreSample createDatabaseAsyncSample = new CreateDatabaseAsyncPostgreSample();
-        await createDatabaseAsyncSample.CreateDatabaseAsyncPostgre(ProjectId, InstanceId, PostgreSqlDatabaseId);
+        CreateDatabaseAsyncPostgresSample createDatabaseAsyncSample = new CreateDatabaseAsyncPostgresSample();
+        await createDatabaseAsyncSample.CreateDatabaseAsyncPostgres(ProjectId, InstanceId, PostgreSqlDatabaseId);
+        await CreateVenueTablesAndInsertDataAsyncPostgres();
     }
 
     private async Task InitializeEncryptionKeys()
@@ -317,13 +390,45 @@ public class SpannerFixture : IAsyncLifetime, ICollectionFixture<SpannerFixture>
         }
     }
 
+    private async Task InitializeMultiRegionEncryptedBackupAsync()
+    {
+        // Sample backup for MR CMEK restore test.
+        try
+        {
+            CreateDatabaseWithMultiRegionEncryptionAsyncSample createDatabaseAsyncSample = new CreateDatabaseWithMultiRegionEncryptionAsyncSample();
+            InsertDataAsyncSample insertDataAsyncSample = new InsertDataAsyncSample();
+            await createDatabaseAsyncSample.CreateDatabaseWithMultiRegionEncryptionAsync(ProjectId, InstanceId, FixedMultiRegionEncryptedDatabaseId, KmsKeyNames);
+            await insertDataAsyncSample.InsertDataAsync(ProjectId, InstanceId, FixedMultiRegionEncryptedDatabaseId);
+        }
+        catch (Exception e) when (e.ToString().Contains("Database already exists"))
+        {
+            // We intentionally keep an existing database around to reduce
+            // the likelihood of test timeouts when creating a backup so
+            // it's ok to get an AlreadyExists error.
+            Console.WriteLine($"Database {FixedMultiRegionEncryptedDatabaseId} already exists.");
+        }
+
+        try
+        {
+            CreateBackupWithMultiRegionEncryptionAsyncSample createBackupSample = new CreateBackupWithMultiRegionEncryptionAsyncSample();
+            await createBackupSample.CreateBackupWithMultiRegionEncryptionAsync(ProjectId, InstanceId, FixedMultiRegionEncryptedDatabaseId, FixedMultiRegionEncryptedBackupId, KmsKeyNames);
+        }
+        catch (RpcException e) when (e.StatusCode == StatusCode.AlreadyExists)
+        {
+            // We intentionally keep an existing backup around to reduce
+            // the likelihood of test timeouts when creating a backup so
+            // it's ok to get an AlreadyExists error.
+            Console.WriteLine($"Backup {FixedMultiRegionEncryptedBackupId} already exists.");
+        }
+    }
+
     private async Task DeleteInstanceAsync(string instanceId)
     {
         try
         {
             await InstanceAdminClient.DeleteInstanceAsync(InstanceName.FromProjectInstance(ProjectId, instanceId));
         }
-        catch(RpcException ex) when (ex.Status.StatusCode == StatusCode.NotFound)
+        catch (RpcException ex) when (ex.Status.StatusCode == StatusCode.NotFound)
         {
             Console.WriteLine($"Instance {instanceId} was not found for deletion.");
         }
@@ -377,7 +482,7 @@ public class SpannerFixture : IAsyncLifetime, ICollectionFixture<SpannerFixture>
     }
 
     private static readonly string s_retryInfoMetadataKey = RetryInfo.Descriptor.FullName + "-bin";
-    public async Task<T> SafeCreateInstanceAsync<T>(Func<Task<T>> createInstanceAsync)
+    public async Task<T> SafeAdminAsync<T>(Func<Task<T>> adminRequestAsync)
     {
         int attempt = 0;
         do
@@ -385,7 +490,7 @@ public class SpannerFixture : IAsyncLifetime, ICollectionFixture<SpannerFixture>
             try
             {
                 attempt++;
-                return await createInstanceAsync();
+                return await adminRequestAsync();
             }
             catch (RpcException ex) when (attempt <= 10)
             {
@@ -435,13 +540,27 @@ public class SpannerFixture : IAsyncLifetime, ICollectionFixture<SpannerFixture>
     }
 
     public async Task RunWithTemporaryDatabaseAsync(string instanceId, string databaseId, Func<string, Task> testFunction, params string[] extraStatements)
+    => await RunWithTemporaryDatabaseAsync(instanceId, databaseId, testFunction, DatabaseDialect.GoogleStandardSql, extraStatements);
+
+    private async Task RunWithTemporaryDatabaseAsync(string instanceId, string databaseId, Func<string, Task> testFunction, DatabaseDialect databaseDialect, params string[] extraStatements)
     {
-        var operation = await DatabaseAdminClient.CreateDatabaseAsync(new CreateDatabaseRequest
+        if(databaseDialect == DatabaseDialect.Postgresql && extraStatements?.Length >=1)
+        {
+            throw new ArgumentException("Postgres does not accept extra statements for DB creation");
+        }
+        var databaseCreateRequest = new CreateDatabaseRequest
         {
             ParentAsInstanceName = InstanceName.FromProjectInstance(ProjectId, instanceId),
-            CreateStatement = $"CREATE DATABASE `{databaseId}`",
-            ExtraStatements = { extraStatements },
-        });
+            CreateStatement = databaseDialect == DatabaseDialect.GoogleStandardSql ? $"CREATE DATABASE `{databaseId}`" : $"CREATE DATABASE \"{databaseId}\"",
+            DatabaseDialect = databaseDialect,
+        };
+        if (databaseDialect == DatabaseDialect.GoogleStandardSql)
+        {
+            databaseCreateRequest.ExtraStatements.Add(extraStatements);
+        }
+
+        var operation = await DatabaseAdminClient.CreateDatabaseAsync(databaseCreateRequest);
+
         var completedResponse = await operation.PollUntilCompletedAsync();
         if (completedResponse.IsFaulted)
         {
@@ -458,6 +577,18 @@ public class SpannerFixture : IAsyncLifetime, ICollectionFixture<SpannerFixture>
             await DatabaseAdminClient.DropDatabaseAsync(DatabaseName.FormatProjectInstanceDatabase(ProjectId, instanceId, databaseId));
         }
     }
+
+    public async Task RunWithPostgresqlTemporaryDatabaseAsync(Func<string, Task> testFunction) =>
+        await RunWithPostgresqlTemporaryDatabaseAsync(InstanceId, testFunction);
+
+    public async Task RunWithPostgresqlTemporaryDatabaseAsync(string instanceId, Func<string, Task> testFunction)
+    {
+        var databaseId = GenerateTempDatabaseId();
+        await RunWithPostgresqlTemporaryDatabaseAsync(instanceId, databaseId, testFunction);
+    }
+
+    public async Task RunWithPostgresqlTemporaryDatabaseAsync(string instanceId, string databaseId, Func<string, Task> testFunction) =>
+        await RunWithTemporaryDatabaseAsync(instanceId, databaseId, testFunction, DatabaseDialect.Postgresql);
 
     public async Task CreateVenuesTableAndInsertDataAsync(string databaseId)
     {
@@ -488,11 +619,38 @@ public class SpannerFixture : IAsyncLifetime, ICollectionFixture<SpannerFixture>
         }));
     }
 
-    public async Task RefillMarketingBudgetsAsync(int firstAlbumBudget, int secondAlbumBudget)
+    public async Task CreateSingersAndAlbumsTableAsync(string projectId, string instanceId, string databaseId)
     {
+        using var connection = new SpannerConnection($"Data Source=projects/{projectId}/instances/{instanceId}/databases/{databaseId}");
+        ;
+        var createSingersTable =
+        @"CREATE TABLE Singers (
+                 SingerId INT64 NOT NULL,
+                 FirstName STRING(1024),
+                 LastName STRING(1024),
+                 ComposerInfo BYTES(MAX),
+                 FullName STRING(2048) AS (ARRAY_TO_STRING([FirstName, LastName], "" "")) STORED
+             ) PRIMARY KEY (SingerId)";
+
+        var createAlbumsTable =
+        @"CREATE TABLE Albums (
+                 SingerId INT64 NOT NULL,
+                 AlbumId INT64 NOT NULL,
+                 AlbumTitle STRING(MAX),
+                 MarketingBudget INT64
+             ) PRIMARY KEY (SingerId, AlbumId),
+             INTERLEAVE IN PARENT Singers ON DELETE CASCADE";
+
+        using var createDdlCommand = connection.CreateDdlCommand(createSingersTable, createAlbumsTable);
+        await createDdlCommand.ExecuteNonQueryAsync();
+    }
+
+    public async Task RefillMarketingBudgetsAsync(int firstAlbumBudget, int secondAlbumBudget, string databaseId = null)
+    {
+        var spannerConnection = databaseId is null ? SpannerConnection : new SpannerConnection($"Data Source=projects/{ProjectId}/instances/{InstanceId}/databases/{databaseId}");
         for (int i = 1; i <= 2; ++i)
         {
-            var cmd = SpannerConnection.CreateUpdateCommand("Albums", new SpannerParameterCollection
+            var cmd = spannerConnection.CreateUpdateCommand("Albums", new SpannerParameterCollection
                 {
                     { "SingerId", SpannerDbType.Int64, i },
                     { "AlbumId", SpannerDbType.Int64, i },
@@ -507,5 +665,37 @@ public class SpannerFixture : IAsyncLifetime, ICollectionFixture<SpannerFixture>
         InstanceName instanceName = InstanceName.FromProjectInstance(ProjectId, InstanceId);
         var databases = DatabaseAdminClient.ListDatabases(instanceName);
         return databases;
+    }
+
+    private async Task CreateVenueTablesAndInsertDataAsyncPostgres()
+    {
+        // We create VenueInformation table so that update and query jsonb data sample can run out of order. 
+
+        // Define create table statement for VenueInformation.
+        const string createVenueInformationTableStatement =
+        @"CREATE TABLE VenueInformation (
+            VenueId BIGINT NOT NULL PRIMARY KEY,
+            VenueName VARCHAR(1024),
+            Details JSONB)";
+
+        await CreateTableAsyncPostgres(createVenueInformationTableStatement);
+
+        // Insert data in VenueInformation table.
+        int[] ids = new int[] { 4, 19, 42 };
+        await Task.WhenAll(ids.Select(id =>
+        {
+            using var cmd = PgSpannerConnection.CreateInsertCommand("VenueInformation", new SpannerParameterCollection
+            {
+                { "VenueId", SpannerDbType.Int64, id },
+                { "VenueName", SpannerDbType.String, $"Venue {id}" }
+            });
+            return cmd.ExecuteNonQueryAsync();
+        }));
+    }
+
+    public async Task CreateTableAsyncPostgres(string createTableStatement)
+    {
+        using var cmd = PgSpannerConnection.CreateDdlCommand(createTableStatement);
+        await cmd.ExecuteNonQueryAsync();
     }
 }

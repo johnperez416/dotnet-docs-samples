@@ -1,4 +1,5 @@
-﻿// Copyright 2021 Google Inc. All Rights Reserved.
+﻿// Copyright 2021 Google Inc.
+
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// [START retail_purge_user_event]
 // Purge user events using Retail API
 
 using Google.Cloud.Retail.V2;
@@ -80,7 +80,6 @@ public class PurgeUserEventSample
         return retrievedResponse;
     }
 }
-// [END retail_purge_user_event]
 
 /// <summary>
 /// The purge user event tutorial class.
@@ -94,7 +93,7 @@ public static class PurgeUserEventTutorial
         string defaultCatalog = $"projects/{projectId}/locations/global/catalogs/default_catalog";
 
         // To check the error handling try to pass invalid catalog:
-        // defaultCatalog = "projects/{projectId}/locations/global/catalogs/invalid_catalog";
+        // defaultCatalog = $"projects/{projectId}/locations/global/catalogs/invalid_catalog";
 
         WriteUserEventSample.CallWriteUserEvent(defaultCatalog);
 
