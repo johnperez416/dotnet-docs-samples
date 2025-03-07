@@ -29,12 +29,10 @@ public class CreateSubscriptionWithOrderingTest
     [Fact]
     public void CreateSubscriptionWithOrdering()
     {
-        string randomName = _pubsubFixture.RandomName();
-        string topicId = $"testTopicForCreateSubscriptionWithOrdering{randomName}";
-        string subscriptionId = $"testSubscriptionForCreateSubscriptionWithOrdering{randomName}";
+        var (topicId, subscriptionId) = _pubsubFixture.RandomNameTopicSubscriptionId();
 
         _pubsubFixture.CreateTopic(topicId);
-        _createSubscriptionWithOrderingSample.CreateSubscriptionWithOrdering(_pubsubFixture.ProjectId, subscriptionId, topicId);
+        _createSubscriptionWithOrderingSample.CreateSubscriptionWithOrdering(_pubsubFixture.ProjectId, topicId, subscriptionId);
         _pubsubFixture.TempSubscriptionIds.Add(subscriptionId);
         var subscription = _pubsubFixture.GetSubscription(subscriptionId);
 

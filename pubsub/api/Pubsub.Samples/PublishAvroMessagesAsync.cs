@@ -17,7 +17,6 @@
 using Avro.IO;
 using Avro.Specific;
 using Google.Cloud.PubSub.V1;
-using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -63,7 +62,7 @@ public class PublishAvroMessagesAsyncSample
             }
             catch (Exception exception)
             {
-                Console.WriteLine($"An error ocurred when publishing message {state}: {exception.Message}");
+                Console.WriteLine($"An error occurred when publishing message {state}: {exception.Message}");
             }
         });
         await Task.WhenAll(publishTasks);

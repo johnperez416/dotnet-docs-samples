@@ -1,4 +1,4 @@
-﻿// Copyright 2020 Google Inc.
+// Copyright 2020 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,11 +30,16 @@ public class BatchReadRecordsAsyncSample
         using var connection = new SpannerConnection(connectionString);
         await connection.OpenAsync();
 
-        using var transaction = await connection.BeginReadOnlyTransactionAsync();
+        using var transaction = await connection.BeginTransactionAsync(SpannerTransactionCreationOptions.ReadOnly.WithIsDetached(true), cancellationToken: default);
         transaction.DisposeBehavior = DisposeBehavior.CloseResources;
         using var cmd = connection.CreateSelectCommand("SELECT SingerId, FirstName, LastName FROM Singers");
         cmd.Transaction = transaction;
-        var partitions = await cmd.GetReaderPartitionsAsync();
+
+        // A CommandPartition object is serializable and can be used from a different process.
+        // If data boost is enabled, partitioned read and query requests will be executed
+        // using Spanner independent compute resources.
+        var partitions = await cmd.GetReaderPartitionsAsync(PartitionOptions.Default.WithDataBoostEnabled(true));
+
         var transactionId = transaction.TransactionId;
         await Task.WhenAll(partitions.Select(x => DistributedReadWorkerAsync(x, transactionId)));
         Console.WriteLine($"Done reading!  Total rows read: {_rowsRead:N0} with {_partitionCount} partition(s)");
@@ -45,7 +50,7 @@ public class BatchReadRecordsAsyncSample
     {
         var localId = Interlocked.Increment(ref _partitionCount);
         using var connection = new SpannerConnection(id.ConnectionString);
-        using var transaction = connection.BeginReadOnlyTransaction(id);
+        using var transaction = await connection.BeginTransactionAsync(SpannerTransactionCreationOptions.FromReadOnlyTransactionId(id), cancellationToken: default);
         using var cmd = connection.CreateCommandWithPartition(readPartition, transaction);
         using var reader = await cmd.ExecuteReaderAsync();
         while (await reader.ReadAsync())

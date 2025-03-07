@@ -13,17 +13,16 @@
 // the License.
 //
 
+using Google.Apis.Bigquery.v2.Data;
+using Google.Cloud.BigQuery.V2;
+using Google.Cloud.Storage.V1;
+using GoogleCloudSamples;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using Google.Cloud.BigQuery.V2;
-using Google.Cloud.Storage.V1;
-using Google.Apis.Storage.v1.Data;
-using GoogleCloudSamples;
-using Xunit;
-using System.Text.RegularExpressions;
 using System.Linq;
-using Google.Apis.Bigquery.v2.Data;
+using System.Text.RegularExpressions;
+using Xunit;
 
 public class BigQueryTest : IDisposable, IClassFixture<RandomBucketFixture>
 {
@@ -103,6 +102,15 @@ public class BigQueryTest : IDisposable, IClassFixture<RandomBucketFixture>
     }
 
     [Fact]
+    public void TestCreateTableRangePartitioned()
+    {
+        var snippet = new BigQueryCreateTableRangePartitioned();
+        string datasetId = CreateTempDataset();
+        BigQueryTable table = snippet.CreateTable(_projectId, datasetId, "partitioned-table");
+        Assert.NotNull(table.Resource.RangePartitioning);
+    }
+
+    [Fact]
     public void TestDeleteDataset()
     {
         var snippet = new BigQueryDeleteDataset();
@@ -135,6 +143,34 @@ public class BigQueryTest : IDisposable, IClassFixture<RandomBucketFixture>
         snippet.DeleteTable(_projectId, datasetId, tableId);
         var output = _stringOut.ToString();
         Assert.Contains($"{tableId} deleted", output);
+    }
+
+    [Fact]
+    public void TestExtractModel()
+    {
+        string datasetId = CreateTempDataset();
+        string modelId = TestUtil.RandomName();
+        string createModelSql = $@"
+CREATE MODEL {datasetId}.{modelId}
+OPTIONS
+  (model_type='linear_reg',
+    input_label_cols=['label'],
+    max_iterations = 1,
+    learn_rate=0.4,
+    learn_rate_strategy='constant') AS
+SELECT 'a' AS f1, 2.0 AS label
+UNION ALL
+SELECT 'b' AS f1, 3.8 AS label";
+
+        var createModelJob = _client.CreateQueryJob(createModelSql, null);
+        createModelJob.PollUntilCompleted().ThrowOnAnyError();
+        Assert.NotNull(_client.GetModel(datasetId, modelId));
+
+        var snippet = new BigQueryExtractModel();
+        snippet.ExtractModel(_projectId, datasetId, modelId, $"gs://{_bucketName}/model");
+        var modelFiles = _storage.ListObjects(_bucketName, "model/").ToList();
+        // We end up with multiple files for the model.
+        Assert.True(modelFiles.Count > 4);
     }
 
     [Fact]
@@ -316,6 +352,7 @@ public class BigQueryTest : IDisposable, IClassFixture<RandomBucketFixture>
         snippet.LoadTableGcsCsv(_projectId, datasetId);
         return "us_states";  // The table ID defined in the snippet
     }
+
     public void Dispose()
     {
         foreach (BigQueryDataset dataset in _tempDatasets)

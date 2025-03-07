@@ -1,4 +1,4 @@
-﻿// Copyright 2020 Google Inc.
+// Copyright 2020 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,21 +19,17 @@ public class CreatePushSubscriptionTest
 {
     private readonly PubsubFixture _pubsubFixture;
     private readonly CreatePushSubscriptionSample _createPushSubscriptionSample;
-    private ListSubscriptionsSample _listSubscriptionsSample;
 
     public CreatePushSubscriptionTest(PubsubFixture pubsubFixture)
     {
         _pubsubFixture = pubsubFixture;
         _createPushSubscriptionSample = new CreatePushSubscriptionSample();
-        _listSubscriptionsSample = new ListSubscriptionsSample();
     }
 
     [Fact]
-    public void TestCreatePushSubscription()
+    public void CreatePushSubscription()
     {
-        string randomName = _pubsubFixture.RandomName();
-        string topicId = $"testTopicForCreatePushSubscription{randomName}";
-        string subscriptionId = $"testSubscriptionForCreatePushSubscription{randomName}";
+        var (topicId, subscriptionId) = _pubsubFixture.RandomNameTopicSubscriptionId();
         string pushEndpoint = "https://my-test-project.appspot.com/push";
 
         _pubsubFixture.CreateTopic(topicId);

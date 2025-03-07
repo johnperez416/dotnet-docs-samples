@@ -19,19 +19,16 @@ namespace GoogleCloudSamples
 {
     public class RedactImageTests : IClassFixture<DlpTestFixture>
     {
-        private DlpTestFixture Fixture { get; }
-        public RedactImageTests(DlpTestFixture fixture)
-        {
-            Fixture = fixture;
-        }
-
+        private DlpTestFixture _fixture;
+        public RedactImageTests(DlpTestFixture fixture) => _fixture = fixture;
+        [Fact]
         public void TestRedactImage()
         {
-            var input = Path.Combine(Fixture.ResourcePath, "test.png");
-            var output = Path.Combine(Fixture.ResourcePath, "redacted.png");
-            var redacted = RedactImage.Redact(Fixture.ProjectId, input, output);
+            var input = Path.Combine(_fixture.ResourcePath, "test_dlp_redact_image.png");
+            var output = Path.Combine(_fixture.ResourcePath, "dlp_redacted_image.png");
+            var redacted = RedactImage.Redact(_fixture.ProjectId, input, output);
             Assert.True(File.Exists(output));
-            Assert.Equal("223-456-7890", redacted.ExtractedText);
+            Assert.Contains("223-456-7890", redacted.ExtractedText);
         }
     }
 }

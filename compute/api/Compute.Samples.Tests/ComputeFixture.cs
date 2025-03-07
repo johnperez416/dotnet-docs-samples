@@ -35,7 +35,7 @@ namespace Compute.Samples.Tests
 
         public string MachineType => "n1-standard-1";
 
-        public string DiskImage => "projects/debian-cloud/global/images/family/debian-10";
+        public string DiskImage => "projects/debian-cloud/global/images/family/debian-12";
 
         public long DiskSizeGb => 10;
 
@@ -75,6 +75,12 @@ namespace Compute.Samples.Tests
         {
             ShouldRetry = (ex) => ex is RpcException rpcEx 
                 && (rpcEx.StatusCode == StatusCode.NotFound || rpcEx.Message.Contains("resourceNotReady"))
+        };
+
+        public RetryRobot FirewallRuleReady { get; } = new RetryRobot
+        {
+            ShouldRetry = (ex) => ex is RpcException rpcEx
+                && (rpcEx.StatusCode == StatusCode.InvalidArgument || rpcEx.Message.Contains("is not ready"))
         };
 
         public ComputeFixture()

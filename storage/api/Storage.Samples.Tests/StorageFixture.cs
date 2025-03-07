@@ -25,6 +25,7 @@ using System.Net;
 using System.Threading;
 using Xunit;
 using Xunit.Sdk;
+using static Google.Apis.Storage.v1.Data.Bucket;
 
 [CollectionDefinition(nameof(StorageFixture))]
 public class StorageFixture : IDisposable, ICollectionFixture<StorageFixture>
@@ -36,6 +37,8 @@ public class StorageFixture : IDisposable, ICollectionFixture<StorageFixture>
         = new Dictionary<string, Dictionary<string, List<long>>>();
     public string BucketNameGeneric { get; } = Guid.NewGuid().ToString();
     public string BucketNameRegional { get; } = Guid.NewGuid().ToString();
+
+    public string BucketNameHns { get; } = Guid.NewGuid().ToString();
     public string TestLocation { get; } = "us-west1";
     public string FileName { get; } = "Hello.txt";
     public string FilePath { get; } = "Resources/Hello.txt";
@@ -69,6 +72,14 @@ public class StorageFixture : IDisposable, ICollectionFixture<StorageFixture>
         createRegionalBucketSample.CreateRegionalBucket(ProjectId, BucketNameRegional, TestLocation, StorageClasses.Regional);
         SleepAfterBucketCreateUpdateDelete();
         TempBucketNames.Add(BucketNameRegional);
+
+        // create hns bucket
+        CreateBucketWithHierarchicalNamespaceEnabledSample createBucketWithHierarchicalNamespaceEnabledSample =
+            new CreateBucketWithHierarchicalNamespaceEnabledSample();
+        createBucketWithHierarchicalNamespaceEnabledSample.CreateBucketWithHierarchicalNamespace(ProjectId,
+            BucketNameHns);
+        SleepAfterBucketCreateUpdateDelete();
+        TempBucketNames.Add(BucketNameHns);
 
         //upload file to BucketName
         UploadFileSample uploadFileSample = new UploadFileSample();
@@ -198,10 +209,10 @@ public class StorageFixture : IDisposable, ICollectionFixture<StorageFixture>
         } while (true);
     }
 
-    public void CreateBucket(string bucketName, string location = null)
+    public void CreateBucket(string bucketName, string location = null, AutoclassData autoclassData = null)
     {
         StorageClient storageClient = StorageClient.Create();
-        storageClient.CreateBucket(ProjectId, new Bucket { Name = bucketName, Location = location });
+        storageClient.CreateBucket(ProjectId, new Bucket { Name = bucketName, Location = location, Autoclass = autoclassData });
         SleepAfterBucketCreateUpdateDelete();
         TempBucketNames.Add(bucketName);
     }

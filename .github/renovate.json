@@ -3,11 +3,35 @@
         "config:base",
         ":disableDependencyDashboard"
     ],
+    "ignorePresets": [":ignoreModulesAndTests"],
     "ignorePaths": [
-        "bigtable/api/**",
-        "appengine/flexible/**",
-        "endpoints/getting-started/**",
-        "applications/googlehome-meets-dotnetcontainers/**"
+        "endpoints/getting-started/**"
+    ],
+    "packageRules": [
+        {
+            "ignorePaths": [
+                "appengine/flexible/**",
+                "run/**",
+                "applications/clouddemo/netcore/**"
+            ],
+            "matchPackagePrefixes": [
+                "Microsoft.AspNetCore.",
+                "mcr.microsoft.com/dotnet/"
+            ],
+            "allowedVersions": "<9.0.0"
+        },
+        {
+            "includePaths": [
+                "appengine/flexible/**",
+                "run/**",
+                "applications/clouddemo/netcore/**"
+            ],
+            "matchPackagePrefixes": [
+                "Microsoft.AspNetCore.",
+                "mcr.microsoft.com/dotnet/"
+            ],
+            "allowedVersions": "<7.0.0"
+        }
     ],
     "schedule": [
         "before 8am"

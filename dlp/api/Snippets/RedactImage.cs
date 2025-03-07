@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// [START redact_image]
+// [START dlp_redact_image]
 
 using Google.Api.Gax.ResourceNames;
 using Google.Cloud.Dlp.V2;
@@ -30,13 +30,13 @@ public class RedactImage
             InspectConfig = new InspectConfig
             {
                 MinLikelihood = Likelihood.Likely,
-                Limits = new InspectConfig.Types.FindingLimits() { MaxFindingsPerItem = 5 },
                 IncludeQuote = true,
                 InfoTypes =
-                    {
-                        new InfoType { Name = "PHONE_NUMBER" },
-                        new InfoType { Name = "EMAIL_ADDRESS" }
-                    }
+                {
+                    new InfoType { Name = "PHONE_NUMBER" },
+                    new InfoType { Name = "EMAIL_ADDRESS" },
+                    new InfoType { Name = "CREDIT_CARD_NUMBER" }
+                }
             },
             ByteItem = new ByteContentItem
             {
@@ -57,4 +57,4 @@ public class RedactImage
     }
 }
 
-// [END redact_image]
+// [END dlp_redact_image]

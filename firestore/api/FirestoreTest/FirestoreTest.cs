@@ -473,7 +473,7 @@ namespace GoogleCloudSamples
         }
 
         // LISTEN DATA TESTS
-        [Fact(Skip = "https://github.com/GoogleCloudPlatform/dotnet-docs-samples/issues/1162")]
+        [Fact]
         public void ListenDocumentTest()
         {
             RunDeleteData("delete-collection", Environment.GetEnvironmentVariable("FIRESTORE_PROJECT_ID"));
@@ -489,7 +489,7 @@ namespace GoogleCloudSamples
             Assert.Contains("Stopping the listener", listenDocumentOutput.Stdout);
         }
 
-        [Fact(Skip = "https://github.com/GoogleCloudPlatform/dotnet-docs-samples/issues/1162")]
+        [Fact]
         public void ListenMultipleTest()
         {
             RunDeleteData("delete-collection", Environment.GetEnvironmentVariable("FIRESTORE_PROJECT_ID"));
@@ -501,7 +501,7 @@ namespace GoogleCloudSamples
             Assert.Contains("Stopping the listener", listenMultipleOutput.Stdout);
         }
 
-        [Fact(Skip = "https://github.com/GoogleCloudPlatform/dotnet-docs-samples/issues/1162")]
+        [Fact]
         public void ListenForChangesTest()
         {
             RunDeleteData("delete-collection", Environment.GetEnvironmentVariable("FIRESTORE_PROJECT_ID"));
@@ -672,6 +672,25 @@ namespace GoogleCloudSamples
         {
             RunQueryData("query-create-examples", Environment.GetEnvironmentVariable("FIRESTORE_PROJECT_ID"));
             var output = RunQueryData("invalid-range-query", Environment.GetEnvironmentVariable("FIRESTORE_PROJECT_ID"));
+        }
+
+        [Fact]
+        public void SubcollectionQueryTest()
+        {
+            RunQueryData("query-create-examples", Environment.GetEnvironmentVariable("FIRESTORE_PROJECT_ID"));
+            var output = RunQueryData("subcollection-query", Environment.GetEnvironmentVariable("FIRESTORE_PROJECT_ID"));
+
+            Assert.Contains(": Golden Gate Bridge", output.Stdout);
+        }
+
+        [Fact]
+        public void MultipleInequalitiesQueryTest()
+        {
+            RunQueryData("query-create-examples", Environment.GetEnvironmentVariable("FIRESTORE_PROJECT_ID"));
+            var output = RunQueryData("multiple-inequalities", Environment.GetEnvironmentVariable("FIRESTORE_PROJECT_ID"));
+
+            Assert.Contains("Los Angeles", output.Stdout);
+            Assert.Contains("Beijing", output.Stdout);
         }
 
         // ORDER LIMIT DATA TESTS

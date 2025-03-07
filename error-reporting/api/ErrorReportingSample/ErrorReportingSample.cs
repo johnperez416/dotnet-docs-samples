@@ -1,5 +1,5 @@
 ﻿/**
- * Copyright 2016 Google Inc. All Rights Reserved.
+ * Copyright 2016 Google Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,15 +29,27 @@ using System;
 
 public class ErrorReportingSample
 {
+    static String projectId;
+
     public static void Main(string[] args)
     {
+	    // Set your Google Cloud Platform project ID via environment or explicitly
+        if (args != null && args.Length > 0 && !String.IsNullOrEmpty(args[0]))
+        {
+            projectId = args[0];
+        }
+        else
+        {
+            projectId = Environment.GetEnvironmentVariable("GOOGLE_CLOUD_PROJECT");
+        }
+
         try
         {
-            throw new Exception("Generic exception for testing Stackdriver Error Reporting");
+            throw new Exception("Something went wrong");
         }
         catch (Exception e)
         {
-            report(e);
+            ReportError(e);
             Console.WriteLine("Stackdriver Error Report Sent");
         }
     }
@@ -46,23 +58,21 @@ public class ErrorReportingSample
     /// <summary>
     /// Report an exception to the Error Reporting service.
     /// </summary>
-    private static void report(Exception e)
+    private static void ReportError(Exception e)
     {
         // Create the report and execute the request.
         var reporter = ReportErrorsServiceClient.Create();
+        var projectName = new ProjectName(projectId);
 
-        // Get the project ID from the environement variables.
-        var projectName = new ProjectName(
-            Environment.GetEnvironmentVariable("GOOGLE_PROJECT_ID"));
-
-        // Add a service context to the report. For more details see:
-        // https://cloud.google.com/error-reporting/reference/rest/v1beta1/projects.events#ServiceContext
-        ServiceContext serviceContext = new ServiceContext()
+        // Optionally add a service context to the report. For more details see:
+        // https://cloud.google.com/error-reporting/reference/rest/v1beta1/ServiceContext
+        var assemblyName = System.Reflection.Assembly.GetEntryAssembly().GetName();
+        var serviceContext = new ServiceContext()
         {
-            Service = "myapp",
-            Version = "1.1",
+            Service = assemblyName.Name,
+            Version = assemblyName.Version.ToString(),
         };
-        ReportedErrorEvent errorEvent = new ReportedErrorEvent()
+        var errorEvent = new ReportedErrorEvent()
         {
             Message = e.ToString(),
             ServiceContext = serviceContext,

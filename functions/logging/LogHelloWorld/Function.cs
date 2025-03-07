@@ -1,4 +1,4 @@
-﻿// Copyright 2020 Google LLC
+// Copyright 2020 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,25 +19,24 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Threading.Tasks;
 
-namespace LogHelloWorld
+namespace LogHelloWorld;
+
+public class Function : IHttpFunction
 {
-    public class Function : IHttpFunction
+    private readonly ILogger _logger;
+
+    public Function(ILogger<Function> logger) =>
+        _logger = logger;
+
+    public async Task HandleAsync(HttpContext context)
     {
-        private readonly ILogger _logger;
+        Console.WriteLine("I am a log to stdout!");
+        Console.Error.WriteLine("I am a log to stderr!");
 
-        public Function(ILogger<Function> logger) =>
-            _logger = logger;
+        _logger.LogInformation("I am an info log!");
+        _logger.LogWarning("I am a warning log!");
 
-        public async Task HandleAsync(HttpContext context)
-        {
-            Console.WriteLine("I am a log to stdout!");
-            Console.Error.WriteLine("I am a log to stderr!");
-
-            _logger.LogInformation("I am an info log!");
-            _logger.LogWarning("I am a warning log!");
-
-            await context.Response.WriteAsync("Messages successfully logged!");
-        }
+        await context.Response.WriteAsync("Messages successfully logged!", context.RequestAborted);
     }
 }
 // [END functions_log_helloworld]
